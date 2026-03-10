@@ -50,7 +50,7 @@ playground.xcworkspace
 # Carthage/Checkouts
 
 Carthage/Build/
-
+UserInterfaceState.xcuserstate
 # fastlane
 #
 # It is recommended to not store the screenshots in the git repo.
