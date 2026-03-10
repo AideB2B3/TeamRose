@@ -7,7 +7,17 @@
 import SwiftUI
 import AVFoundation
 import MapKit
+import MessageUI
+
+extension Notification.Name {
+    static let refreshCustomerOrders = Notification.Name("refreshCustomerOrders")
+}
+
 struct ContentView: View {
+    // State
+    @ObservedObject private var auth = AuthManager.shared
+    @StateObject private var supabaseManager = SupabaseManager.shared
+    @StateObject private var ordersViewModel = CustomerOrdersViewModel()
     @State private var path = NavigationPath()
     
     // User Selection State
@@ -19,18 +29,39 @@ struct ContentView: View {
     // Persistent Test Results
     @State private var testResults: [String: Bool] = [:]
     
+    // UI State
+    @State private var showingProfile = false
+    
     var body: some View {
         NavigationStack(path: $path) {
             // MARK: - Home Screen
             VStack {
-                Spacer()
-                ZStack {
-                    Circle().fill(Color.blue.opacity(0.1)).frame(width: 220, height: 220)
-                    Image(systemName: "wrench.and.iphone")
-                        .font(.system(size: 90))
-                        .foregroundColor(.blue)
-                        .symbolEffect(.pulse)
+                // Persistent Login Status Header
+                if auth.currentUserID == nil {
+                    Button(action: { showingProfile = true }) {
+                        HStack {
+                            Image(systemName: "person.crop.circle.badge.plus")
+                            Text("Sign in to save your repairs and track history")
+                                .font(.subheadline.bold())
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                        }
+                        .padding()
+                        .background(Color.brandPrimary.opacity(0.1))
+                        .foregroundColor(.brandPrimary)
+                        .cornerRadius(12)
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 10)
                 }
+
+                Spacer()
+
+                Spacer()
+                Image("FX@4x")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 200, height: 200)
                 
                 Spacer()
                 
@@ -41,17 +72,61 @@ struct ContentView: View {
                         .font(.headline)
                         .foregroundColor(.secondary)
                 }
-                .padding(.bottom, 60)
+                .padding(.bottom, 40)
                 
-                Button(action: { path.append("gadget") }) {
+                HStack(spacing: 16) {
+                    // Quick Action: Hardware Check
+                    Button(action: {
+                        selectedGadget = "Phone"
+                        selectedBrand = "Apple"
+                        selectedModel = "iPhone"
+                        // Skip directly to dashboard for quick test
+                        path.append("dashboard")
+                    }) {
+                        VStack(spacing: 12) {
+                            Image(systemName: "cpu")
+                                .font(.title)
+                            Text("Hardware\nCheck")
+                                .font(.subheadline.bold())
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 20)
+                        .background(Color(uiColor: .secondarySystemGroupedBackground))
+                        .foregroundColor(.primary)
+                        .cornerRadius(16)
+                    }
+
+                    // Orders
+                    Button(action: {
+                        showingProfile = true
+                    }) {
+                        VStack(spacing: 12) {
+                            Image(systemName: "shippingbox")
+                                .font(.title)
+                            Text("My\nOrders")
+                                .font(.subheadline.bold())
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 20)
+                        .background(Color(uiColor: .secondarySystemGroupedBackground))
+                        .foregroundColor(.primary)
+                        .cornerRadius(16)
+                    }
+                }
+                .padding(.horizontal, 30)
+                .padding(.bottom, 20)
+                
+                Button(action: { path.append("device_selection") }) {
                     HStack {
-                        Text("Start Diagnostic")
+                        Text("Start New Repair")
                             .font(.headline)
                         Image(systemName: "arrow.right")
                     }
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(Color.blue)
+                    .background(Color.brandPrimary)
                     .foregroundColor(.white)
                     .cornerRadius(16)
                 }
@@ -61,42 +136,38 @@ struct ContentView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: {
-                        // Profile action
+                        showingProfile = true
                     }) {
-                        Image(systemName: "person.crop.circle")
-                            .font(.system(size: 24))
-                            .foregroundColor(.primary)
+                        if auth.currentUserID == nil {
+                            HStack(spacing: 4) {
+                                Text("Sign In")
+                                    .font(.subheadline.bold())
+                                Image(systemName: "person.crop.circle")
+                            }
+                            .foregroundColor(.brandPrimary)
+                        } else {
+                            Image(systemName: "person.crop.circle.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(.brandPrimary)
+                        }
                     }
                 }
             }
             .navigationDestination(for: String.self) { destination in
                 switch destination {
-                case "gadget":
-                    GridSelectionView(title: "What are we fixing?", items: [
-                        ("Phone", "iphone"),
-                        ("Tablet", "ipad"),
-                        ("Laptop", "macbook"),
-                        ("Smartwatch", "applewatch")
-                    ], selection: $selectedGadget) {
-                        path.append("brand")
-                    }
-                case "brand":
-                    BrandGridSelectionView(title: "Select Brand", items: [
-                        ("Apple", "applelogo", true),         // System Symbol
-                        ("Samsung", "samsung_logo", false),   // Photo in Assets
-                        ("Google", "google_logo", false),     // Photo in Assets
-                        ("Other", "questionmark.circle", true)
-                    ], selection: $selectedBrand) {
-                        path.append("model")
-                    }
-                case "model":
-                    GridSelectionView(title: "Select Model", items: models(for: selectedGadget, brand: selectedBrand), selection: $selectedModel) {
+                case "device_selection":
+                    DeviceSelectionView(
+                        selectedGadget: $selectedGadget,
+                        selectedBrand: $selectedBrand,
+                        selectedModel: $selectedModel,
+                        availableGadgets: availableGadgets,
+                        availableBrands: availableBrands,
+                        availableModels: availableModels
+                    ) {
                         path.append("problem")
                     }
                 case "problem":
-                    ListSelectionView(title: "What's the issue?", items: [
-                        "I'm not sure (Run Test)", "Broken Screen", "Battery Issue", "Water Damage", "Camera Failure"
-                    ], selection: $selectedProblem) {
+                    ListSelectionView(title: "What's the issue?", items: availableProblems, selection: $selectedProblem) {
                         if selectedProblem == "I'm not sure (Run Test)" {
                             path.append("dashboard")
                         } else {
@@ -105,6 +176,10 @@ struct ContentView: View {
                     }
                 case "dashboard":
                     DiagnosticDashboardView(brand: selectedBrand ?? "Apple", model: selectedModel ?? "iPhone", testResults: $testResults, path: $path) {
+                        // Automatically set problem based on failures before moving to shops
+                        if let detected = determineProblem(from: testResults) {
+                            selectedProblem = detected
+                        }
                         path.append("shops")
                     }
                 case "shops":
@@ -134,59 +209,329 @@ struct ContentView: View {
             }
             // Add navigation destination for shop structures
             .navigationDestination(for: ShopItem.self) { shop in
-                ShopDetailView(shop: shop)
+                ShopDetailView(shop: shop, path: $path)
             }
+        }
+        .sheet(isPresented: $showingProfile) {
+            if auth.currentUserID != nil {
+                CustomerProfileView()
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            } else {
+                CustomerLoginView()
+            }
+        }
+        .onChange(of: path.count) { newCount in
+            print("🧭 Path count changed: \(newCount)")
+            if newCount == 0 {
+                testResults.removeAll()
+                selectedGadget = nil
+                selectedBrand = nil
+                selectedModel = nil
+                selectedProblem = nil
+            }
+        }
+        .task {
+            // Load types, brands, models, and problems from DB
+            await supabaseManager.fetchLookupData()
+            if auth.currentUserID != nil {
+                await ordersViewModel.fetchOrders()
+            }
+        }
+        .onChange(of: auth.currentUserID) { newID in
+            if newID != nil {
+                Task { await ordersViewModel.fetchOrders() }
+            } else {
+                ordersViewModel.orders = []
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .refreshCustomerOrders)) { _ in
+            Task { await ordersViewModel.fetchOrders() }
         }
     }
     
-    func models(for gadget: String?, brand: String?) -> [(String, String)] {
-        if gadget == "Tablet" { return [("iPad Pro", "ipad"), ("iPad Air", "ipad"), ("Galaxy Tab S9", "ipad")] }
-        if gadget == "Laptop" { return [("MacBook Pro 16\"", "macbook"), ("MacBook Air", "macbook")] }
-        if gadget == "Smartwatch" { return [("Apple Watch Series 9", "applewatch"), ("Galaxy Watch 6", "applewatch")] }
-        if brand == "Samsung" { return [("Galaxy S24", "iphone.gen3"), ("Galaxy Z Fold", "iphone.gen2")] }
-        return [("iPhone 15 Pro", "iphone"), ("iPhone 15", "iphone"), ("iPhone 14 Pro", "iphone.gen3")]
+    // MARK: - Dynamic Data Helpers
+    private var availableGadgets: [(String, String)] {
+        let types = Set(supabaseManager.availableDevices.compactMap { $0.device_type })
+        return types.map { type in
+            let icon: String
+            switch type.lowercased() {
+            case "phone": icon = "iphone"
+            case "tablet": icon = "ipad"
+            case "laptop": icon = "macbook"
+            case "smartwatch": icon = "applewatch"
+            default: icon = "questionmark.circle"
+            }
+            return (type, icon)
+        }.sorted(by: { $0.0 < $1.0 })
+    }
+
+    private var availableBrands: [(String, String, Bool)] {
+        guard let gadget = selectedGadget else { return [] }
+        let brands = Set(supabaseManager.availableDevices
+            .filter { $0.device_type == gadget }
+            .map { $0.brand })
+            .filter { $0.lowercased() == "apple" } // Only Apple
+        
+        return brands.map { brand in
+            return (brand, "applelogo", true)
+        }.sorted(by: { $0.0 < $1.0 })
+    }
+
+    private var availableModels: [(String, String)] {
+        guard let brand = selectedBrand, let gadget = selectedGadget else { return [] }
+        let models = Set(supabaseManager.availableDevices
+            .filter { $0.brand == brand && $0.device_type == gadget }
+            .map { $0.model })
+        return models
+            .map { ($0, gadget.lowercased() == "phone" ? "iphone" : gadget.lowercased()) }
+            .sorted(by: { $0.0 < $1.0 })
+    }
+
+    private var availableProblems: [String] {
+        var base: [String] = []
+        // Only show diagnostic test option for Phones
+        if selectedGadget?.lowercased() == "phone" {
+            base.append("I'm not sure (Run Test)")
+        }
+        let uniqueNames = Set(supabaseManager.availableProblems.map { $0.problem_name })
+        base.append(contentsOf: uniqueNames.sorted())
+        return base
+    }
+
+    private func determineProblem(from results: [String: Bool]) -> String? {
+        // Priority mapping for failed tests to DB problem names
+        if results["touch"] == false || results["pixels"] == false { return "Screen Repair" }
+        if results["camera"] == false || results["flashlight"] == false { return "Camera Fix" }
+        if results["audio"] == false { return "Microphone Issue" }
+        if results["battery"] == false { return "No Power" }
+        if results["buttons"] == false || results["haptics"] == false { return "Logic Board Repair" }
+        
+        return "Analysis Completed"
     }
 }
 
 // MARK: - Reusable Selection UI
-struct GridSelectionView: View {
-    let title: String
-    let items: [(String, String)] // (Title, IconName)
-    @Binding var selection: String?
-    let onSelected: () -> Void
+// MARK: - Unified Device Selection View
+struct DeviceSelectionView: View {
+    @Binding var selectedGadget: String?
+    @Binding var selectedBrand: String?
+    @Binding var selectedModel: String?
+    
+    let availableGadgets: [(String, String)]
+    let availableBrands: [(String, String, Bool)]
+    let availableModels: [(String, String)]
+    let onContinue: () -> Void
     
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 20) {
-                ForEach(items, id: \.0) { item in
-                    Button(action: {
-                        selection = item.0
-                        onSelected()
-                    }) {
-                        VStack(spacing: 16) {
-                            Image(systemName: item.1)
-                                .font(.system(size: 40))
-                                .foregroundColor(selection == item.0 ? .white : .blue)
-                            Text(item.0)
-                                .font(.headline)
-                                .foregroundColor(selection == item.0 ? .white : .primary)
+            VStack(alignment: .leading, spacing: 32) {
+                
+                // SECTION 1: GADGET TYPE
+                VStack(alignment: .leading, spacing: 16) {
+                    SelectionHeader(title: "1. Device Type", subtitle: "What kind of device needs repair?", isSelected: selectedGadget != nil)
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 15) {
+                            ForEach(availableGadgets, id: \.0) { item in
+                                SelectionChip(title: item.0, icon: item.1, isSelected: selectedGadget == item.0) {
+                                    withAnimation {
+                                        selectedGadget = item.0
+                                        selectedBrand = nil
+                                        selectedModel = nil
+                                    }
+                                }
+                            }
                         }
-                        .frame(height: 140)
-                        .frame(maxWidth: .infinity)
-                        .background(selection == item.0 ? Color.blue : Color(uiColor: .secondarySystemGroupedBackground))
-                        .cornerRadius(20)
-                        .shadow(color: .black.opacity(0.05), radius: 10, y: 5)
+                        .padding(.horizontal)
                     }
-                    .buttonStyle(PlainButtonStyle())
+                }
+                
+                // SECTION 2: BRAND
+                if let _ = selectedGadget {
+                    VStack(alignment: .leading, spacing: 16) {
+                        SelectionHeader(title: "2. Brand", subtitle: "Select your device manufacturer", isSelected: selectedBrand != nil)
+                        
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 15) {
+                                ForEach(availableBrands, id: \.0) { item in
+                                    SelectionChip(title: item.0, icon: item.1, isSelected: selectedBrand == item.0, isSystem: item.2) {
+                                        withAnimation {
+                                            selectedBrand = item.0
+                                            selectedModel = nil
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal)
+                        }
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                
+                // SECTION 3: MODEL
+                if let _ = selectedBrand {
+                    VStack(alignment: .leading, spacing: 16) {
+                        SelectionHeader(title: "3. Model", subtitle: "Which specific model is it?", isSelected: selectedModel != nil)
+                        
+                        VStack(spacing: 12) {
+                            ForEach(availableModels, id: \.0) { item in
+                                SelectionRow(title: item.0, icon: item.1, isSelected: selectedModel == item.0) {
+                                    withAnimation {
+                                        selectedModel = item.0
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                
+                Spacer().frame(height: 40)
+                
+                // CONTINUE BUTTON
+                if selectedModel != nil {
+                    Button(action: onContinue) {
+                        HStack {
+                            Text("Next Step")
+                                .font(.headline.bold())
+                            Image(systemName: "chevron.right")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color.brandPrimary)
+                        .foregroundColor(.white)
+                        .cornerRadius(16)
+                        .shadow(color: Color.brandPrimary.opacity(0.3), radius: 10, y: 5)
+                    }
+                    .padding(.horizontal)
+                    .transition(.scale.combined(with: .opacity))
+                }
+            }
+            .padding(.vertical)
+        }
+        .background(Color(uiColor: .systemGroupedBackground))
+        .navigationTitle("Select Device")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - Reusable Selection Components
+struct SelectionHeader: View {
+    let title: String
+    let subtitle: String
+    let isSelected: Bool
+    
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.headline)
+                Text(subtitle)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            if isSelected {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(.brandPrimary)
+                    .font(.title3)
+            }
+        }
+        .padding(.horizontal)
+    }
+}
+
+struct SelectionChip: View {
+    let title: String
+    let icon: String
+    let isSelected: Bool
+    var isSystem: Bool = true
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                if isSystem {
+                    Image(systemName: icon)
+                        .font(.title2)
+                } else {
+                    Image(icon)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 24, height: 24)
+                }
+                Text(title)
+                    .font(.caption.bold())
+            }
+            .padding(.vertical, 12)
+            .padding(.horizontal, 20)
+            .background(isSelected ? Color.brandPrimary : Color(uiColor: .secondarySystemGroupedBackground))
+            .foregroundColor(isSelected ? .brandNeutral : .primary)
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? Color.brandPrimary : Color.clear, lineWidth: 2)
+            )
+        }
+    }
+}
+
+struct SelectionCard: View {
+    let title: String
+    let icon: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack {
+                Image(systemName: icon)
+                    .font(.body)
+                Text(title)
+                    .font(.subheadline.bold())
+                Spacer()
+            }
+            .padding()
+            .background(isSelected ? Color.brandPrimary : Color(uiColor: .secondarySystemGroupedBackground))
+            .foregroundColor(isSelected ? .brandNeutral : .primary)
+            .cornerRadius(12)
+        }
+    }
+}
+
+struct SelectionRow: View {
+    let title: String
+    let icon: String
+    let isSelected: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                Image(systemName: icon)
+                    .font(.title3)
+                Text(title)
+                    .font(.body.bold())
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(BrandColor.primary)
                 }
             }
             .padding()
+            .background(isSelected ? BrandColor.primary.opacity(0.1) : Color(uiColor: .secondarySystemGroupedBackground))
+            .foregroundColor(isSelected ? BrandColor.primary : .primary)
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? BrandColor.primary : Color.clear, lineWidth: 2)
+            )
         }
-        .background(Color(uiColor: .systemGroupedBackground))
-        .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.large)
     }
 }
+
 
 struct ListSelectionView: View {
     let title: String
@@ -221,56 +566,6 @@ struct ListSelectionView: View {
     }
 }
 
-// MARK: - Brand Selection View (Supports Custom Asset Photos)
-struct BrandGridSelectionView: View {
-    let title: String
-    let items: [(String, String, Bool)] // (Title, ImageName, IsSystemSymbol)
-    @Binding var selection: String?
-    let onSelected: () -> Void
-    
-    var body: some View {
-        ScrollView {
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 20) {
-                ForEach(items, id: \.0) { item in
-                    Button(action: {
-                        selection = item.0
-                        onSelected()
-                    }) {
-                        VStack(spacing: 16) {
-                            if item.2 {
-                                // Apple & Other (SF Symbols)
-                                Image(systemName: item.1)
-                                    .font(.system(size: 40))
-                                    .foregroundColor(selection == item.0 ? .white : .blue)
-                            } else {
-                                // Samsung & Google (Real Photos)
-                                Image(item.1)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 50, height: 50)
-                                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                                    .colorMultiply(selection == item.0 ? .white : .primary) // Blends color when selected
-                            }
-                            Text(item.0)
-                                .font(.headline)
-                                .foregroundColor(selection == item.0 ? .white : .primary)
-                        }
-                        .frame(height: 140)
-                        .frame(maxWidth: .infinity)
-                        .background(selection == item.0 ? Color.blue : Color(uiColor: .secondarySystemGroupedBackground))
-                        .cornerRadius(20)
-                        .shadow(color: .black.opacity(0.05), radius: 10, y: 5)
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                }
-            }
-            .padding()
-        }
-        .background(Color(uiColor: .systemGroupedBackground))
-        .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.large)
-    }
-}
 
 
 
@@ -356,123 +651,176 @@ struct CameraDiagnosticView: View {
     }
 }
 
-// MARK: - Shop Data Models & Views
-struct ShopItem: Hashable {
-    let name: String
-    let location: String
-    let price: String
-    let rating: Double
-    let isFastest: Bool
-    let imageName: String
-    let repairType: String
-}
-
 struct ShopListView: View {
     let brand: String
     let model: String
     let problem: String
     @Binding var path: NavigationPath
-    
-    // Database Connection
+
     @StateObject private var db = SupabaseManager()
     @State private var isFetching = true
-    
-    // Fallback Dummy Data (in case your Supabase table is empty right now)
-    var dummyShops: [ShopItem] {
-        [
-            ShopItem(name: "City Tech Repairs", location: "Rome (Mail-in)", price: "$89", rating: 4.8, isFastest: false, imageName: "building.2.crop.circle.fill", repairType: problem),
-            ShopItem(name: "iFixed Milano", location: "Milan (Mail-in)", price: "$120", rating: 4.9, isFastest: true, imageName: "building.fill", repairType: problem),
-            ShopItem(name: "Local Repair Center", location: "Nearby (Walk-in)", price: "$150", rating: 4.2, isFastest: false, imageName: "map.circle.fill", repairType: problem)
-        ]
-    }
-    
+
     var body: some View {
         VStack(spacing: 0) {
-            // Real Apple Map
+            // Map area
             Map(initialPosition: .region(MKCoordinateRegion(
-                center: CLLocationCoordinate2D(latitude: 41.9028, longitude: 12.4964), // Default to Rome
-                span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+                center: CLLocationCoordinate2D(latitude: 41.9028, longitude: 12.4964),
+                span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
             ))) {
-                Marker("City Tech Repairs", coordinate: CLLocationCoordinate2D(latitude: 41.9028, longitude: 12.4964))
+                ForEach(db.liveShops, id: \.name) { shop in
+                    Marker(shop.name, coordinate: CLLocationCoordinate2D(latitude: 41.9028, longitude: 12.4964))
+                }
             }
-            .frame(height: 200)
+            .frame(height: 180)
             .overlay(alignment: .bottom) {
-                Text("Showing repair centers near you...")
-                    .font(.caption.bold())
-                    .padding(8)
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(8)
-                    .padding(.bottom, 8)
+                if !isFetching {
+                    statusBanner
+                }
             }
-            
+
             List {
-                Section {
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack {
-                            Image(systemName: "shippingbox.fill")
-                                .foregroundColor(.blue)
-                            Text("Secure Mail-in Available")
-                                .font(.headline)
-                        }
-                        Text("Because of your hardware diagnostic results, mailing your \(model) to Milan will save you $30.")
+                Section(header:
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Looking for:")
                             .font(.caption)
                             .foregroundColor(.secondary)
+                        Text("\(problem) · \(brand) \(model)")
+                            .font(.subheadline.bold())
                     }
-                    .padding(.vertical, 8)
-                }
-                
-                Section("Recommended Shops") {
+                    .padding(.vertical, 4)
+                ) { }
+
+                Section {
                     if isFetching {
-                        HStack {
-                            Spacer()
-                            ProgressView("Querying Supabase...")
-                            Spacer()
-                        }
+                        loadingSection
+                    } else if db.liveShops.isEmpty {
+                        emptyStateSection
                     } else {
-                        // Use Live DB shops! (If empty, show dummy ones just so the UI isn't blank)
-                        let displayShops = db.liveShops.isEmpty ? dummyShops : db.liveShops
-                        
-                        ForEach(displayShops, id: \.name) { shop in
-                            NavigationLink(value: shop) {
-                                HStack(spacing: 16) {
-                                    Image(systemName: shop.imageName)
-                                        .font(.system(size: 30))
-                                        .foregroundColor(.blue)
-                                    
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(shop.name).font(.headline)
-                                        Text(shop.location).font(.subheadline).foregroundColor(.secondary)
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    VStack(alignment: .trailing) {
-                                        Text(shop.price).font(.title3.bold()).foregroundColor(.blue)
-                                        HStack(spacing: 2) {
-                                            Image(systemName: "star.fill").foregroundColor(.orange)
-                                            Text(String(format: "%.1f", shop.rating))
-                                        }.font(.caption.bold())
-                                    }
-                                }
-                                .padding(.vertical, 6)
-                            }
-                        }
+                        resultsSection
                     }
+                } header: {
+                    Text(db.searchMatchStatus == .exactResults ? "Top Matches" : "Recommended Options")
                 }
             }
         }
-        .navigationTitle("Best Options")
+        .navigationTitle("Repair Shops")
         .navigationBarTitleDisplayMode(.inline)
         .task {
-            // FIRE THE SUPABASE QUERY THE MILLISECOND THIS SCREEN OPENS!
-            await db.fetchShops()
+            await db.fetchShops(brand: brand, model: model, problem: problem)
             isFetching = false
+        }
+    }
+
+    private var statusBanner: some View {
+        Group {
+            switch db.searchMatchStatus {
+            case .exactResults:
+                Text("Exact matches for your device")
+            case .partialResults:
+                Text("Shops specializing in \(brand) repairs")
+            case .recommendationsOnly:
+                Text("Top-rated general experts to call")
+            default:
+                EmptyView()
+            }
+        }
+        .font(.caption.bold())
+        .padding(8)
+        .background(.ultraThinMaterial)
+        .cornerRadius(8)
+        .padding(.bottom, 8)
+    }
+
+    private var loadingSection: some View {
+        HStack {
+            Spacer()
+            VStack(spacing: 12) {
+                ProgressView()
+                Text("Analyzing network…")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+        }
+        .padding(.vertical, 40)
+    }
+
+    private var emptyStateSection: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "phone.circle")
+                .font(.system(size: 48))
+                .foregroundColor(.brandPrimary)
+            Text("No direct matches found")
+                .font(.headline)
+            Text("We couldn't find any shops that explicitly list this specific repair. We recommend calling an iPhone expert directly.")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.vertical, 30)
+    }
+
+    private var resultsSection: some View {
+        ForEach(db.liveShops, id: \.self) { shop in
+            NavigationLink(value: shop) {
+                HStack(spacing: 16) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.brandPrimary.opacity(0.1))
+                            .frame(width: 48, height: 48)
+                        Image(systemName: shop.imageName)
+                            .font(.system(size: 22))
+                            .foregroundColor(.brandPrimary)
+                    }
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text(shop.name).font(.headline)
+                            if shop.isFastest {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .foregroundColor(.brandPrimary)
+                                    .font(.caption)
+                            }
+                        }
+                        
+                        if let reason = shop.recommendationReason {
+                            Text(reason)
+                                .font(.caption.bold())
+                                .foregroundColor(.orange)
+                        } else {
+                            Text(shop.location)
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Text(shop.repairType)
+                            .font(.caption)
+                            .foregroundColor(.brandPrimary)
+                    }
+
+                    Spacer()
+
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text(shop.price)
+                            .font(.title3.bold())
+                            .foregroundColor(.brandPrimary)
+                        HStack(spacing: 2) {
+                            Image(systemName: "star.fill").foregroundColor(.orange)
+                            Text(String(format: "%.1f", shop.rating))
+                        }.font(.caption.bold())
+                    }
+                }
+                .padding(.vertical, 6)
+            }
         }
     }
 }
 
+
 struct ShopDetailView: View {
     let shop: ShopItem
+    @Binding var path: NavigationPath
+    @State private var showingMail = false
     
     var body: some View {
         ScrollView {
@@ -529,8 +877,15 @@ struct ShopDetailView: View {
                     
                     // Action Buttons (Hierarchy)
                     HStack(spacing: 12) {
-                        Button(action: { }) {
-                            Text("Book Appointment")
+                        Button(action: {
+                            if let url = URL(string: "tel://\(shop.phoneNumber.replacingOccurrences(of: " ", with: ""))") {
+                                UIApplication.shared.open(url)
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: "phone.fill")
+                                Text("Call Now")
+                            }
                                 .font(.subheadline.bold())
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 50)
@@ -539,7 +894,7 @@ struct ShopDetailView: View {
                                 .cornerRadius(12)
                         }
                         
-                        Button(action: { }) {
+                        Button(action: { showingMail = true }) {
                             HStack {
                                 Image(systemName: "shippingbox.fill")
                                 Text("Mail Service")
@@ -547,7 +902,7 @@ struct ShopDetailView: View {
                             .font(.subheadline.bold())
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
-                            .background(Color.blue)
+                            .background(Color.brandPrimary)
                             .foregroundColor(.white)
                             .cornerRadius(12)
                         }
@@ -577,6 +932,27 @@ struct ShopDetailView: View {
             .padding(.bottom, 40)
         }
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showingMail) {
+            NavigationStack {
+                MailServiceFormView(shop: shop) {
+                    // Success callback: go back home
+                    withAnimation {
+                        showingMail = false
+                        // Use DispatchQueue to let sheet dismiss before clearing path for stability
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            path = NavigationPath()
+                            // Notify ContentView to refresh orders
+                            NotificationCenter.default.post(name: .refreshCustomerOrders, object: nil)
+                        }
+                    }
+                }
+                    .toolbar {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button("Cancel") { showingMail = false }
+                        }
+                    }
+            }
+        }
     }
 }
 
@@ -625,7 +1001,7 @@ struct MicrophoneDiagnosticView: View {
             HStack(spacing: 4) {
                 ForEach(0..<levels.count, id: \.self) { index in
                     RoundedRectangle(cornerRadius: 2)
-                        .fill(LinearGradient(colors: [.blue, .purple], startPoint: .top, endPoint: .bottom))
+                        .fill(LinearGradient(colors: [.brandPrimary, .purple], startPoint: .top, endPoint: .bottom))
                         .frame(width: 6, height: 20 + (levels[index] * 150))
                 }
             }
@@ -744,7 +1120,7 @@ struct DiagnosticDashboardView: View {
                     HStack {
                         Text("\(brand) \(model)")
                             .font(.subheadline.bold())
-                            .foregroundColor(.blue)
+                            .foregroundColor(.brandPrimary)
                         Spacer()
                         Text("\(Int(progress * 100))%")
                             .font(.caption.monospacedDigit().bold())
@@ -752,7 +1128,7 @@ struct DiagnosticDashboardView: View {
                     }
                     
                     ProgressView(value: progress)
-                        .tint(.blue)
+                        .tint(.brandPrimary)
                     
                     Text("Hardware Check")
                         .font(.system(size: 34, weight: .bold, design: .rounded))
@@ -761,7 +1137,7 @@ struct DiagnosticDashboardView: View {
                 
                 // Test Cards (Polished Grid)
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                    CompactTestCard(title: "Touch", icon: "hand.tap.fill", color: .blue, status: testResults["touch"]) { path.append("test_touch") }
+                    CompactTestCard(title: "Touch", icon: "hand.tap.fill", color: .brandPrimary, status: testResults["touch"]) { path.append("test_touch") }
                     CompactTestCard(title: "Camera", icon: "camera.fill", color: .purple, status: testResults["camera"]) { path.append("test_camera") }
                     CompactTestCard(title: "Audio", icon: "waveform", color: .orange, status: testResults["audio"]) { path.append("test_audio") }
                     CompactTestCard(title: "Pixels", icon: "square.grid.3x3.fill", color: .green, status: testResults["pixels"]) { path.append("test_pixels") }
@@ -798,7 +1174,7 @@ struct DiagnosticDashboardView: View {
                             .bold()
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.blue)
+                            .background(Color.brandPrimary)
                             .foregroundColor(.white)
                             .cornerRadius(14)
                         }
@@ -987,11 +1363,11 @@ struct ButtonsDiagnosticView: View {
             Text("Physical Buttons").font(.title2.bold())
             
             VStack(spacing: 20) {
-                ButtonLevel(title: "Volume Up", pressed: volumeUpPressed)
-                ButtonLevel(title: "Volume Down", pressed: volumeDownPressed)
+                ButtonLevel(title: "Volume Up", pressed: $volumeUpPressed)
+                ButtonLevel(title: "Volume Down", pressed: $volumeDownPressed)
             }
             
-            Text("Please press the physical volume buttons on the side of your phone.")
+            Text("Please tap the circles above to indicate the volume buttons work.")
                 .font(.subheadline).foregroundColor(.secondary).multilineTextAlignment(.center).padding()
             
             if volumeUpPressed && volumeDownPressed {
@@ -1000,33 +1376,45 @@ struct ButtonsDiagnosticView: View {
                 Button("They don't work", role: .destructive) { onCompletion(false) }.buttonStyle(.bordered)
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name("AVSystemController_SystemVolumeDidChangeNotification"))) { _ in
-            // This is a simple way to detect volume button interacton for a prototype
-            // In a real app we'd check the volume delta
-            if !volumeUpPressed { volumeUpPressed = true }
-            else if !volumeDownPressed { volumeDownPressed = true }
+        .onChange(of: volumeUpPressed) { _ in checkCompletion() }
+        .onChange(of: volumeDownPressed) { _ in checkCompletion() }
+    }
+    
+    func checkCompletion() {
+        if volumeUpPressed && volumeDownPressed {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                onCompletion(true)
+            }
         }
     }
 }
 
 struct ButtonLevel: View {
     let title: String
-    let pressed: Bool
+    @Binding var pressed: Bool
     var body: some View {
-        HStack {
-            Text(title).bold()
-            Spacer()
-            Image(systemName: pressed ? "checkmark.circle.fill" : "circle")
-                .foregroundColor(pressed ? .green : .gray)
-                .font(.title2)
+        Button(action: {
+            withAnimation(.spring()) {
+                pressed.toggle()
+            }
+        }) {
+            HStack {
+                Text(title).bold()
+                Spacer()
+                Image(systemName: pressed ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(pressed ? .green : .gray)
+                    .font(.title2)
+            }
+            .padding()
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+            .background(Color(uiColor: .systemGray6))
+            .cornerRadius(12)
+            .padding(.horizontal)
+            .foregroundColor(.primary)
         }
-        .padding()
-        .background(Color.gray.opacity(0.1))
-        .cornerRadius(12)
-        .padding(.horizontal)
     }
 }
-
 // MARK: - Haptics Diagnostic
 struct HapticsDiagnosticView: View {
     var onCompletion: (Bool) -> Void
@@ -1071,7 +1459,7 @@ struct FlashlightDiagnosticView: View {
                 toggleFlashlight()
             }
             .buttonStyle(.borderedProminent)
-            .tint(isOn ? .red : .blue)
+            .tint(isOn ? .red : .brandPrimary)
             
             Text("Did the LED on the back light up?").font(.headline).padding(.top)
             
@@ -1099,6 +1487,3 @@ struct FlashlightDiagnosticView: View {
         }
     }
 }
-
-
-

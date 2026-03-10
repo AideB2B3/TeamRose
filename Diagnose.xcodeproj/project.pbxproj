@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		7DABCC9A2F5E166800FE2D35 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = 68AD5C4D915B34B95232D334 /* GoogleSignIn */; };
 		7DDE83F42F5B3C8B00DCB81F /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 7DDE83F32F5B3C8B00DCB81F /* Auth */; };
 		7DDE83F62F5B3C8B00DCB81F /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = 7DDE83F52F5B3C8B00DCB81F /* PostgREST */; };
 		7DDE83F92F5C2E7500DCB81F /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 7DDE83F82F5C2E7500DCB81F /* Supabase */; };
@@ -16,9 +17,22 @@
 		7DDE83D22F59C22500DCB81F /* Diagnose.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Diagnose.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		7DABCCDD2F5F029200FE2D35 /* Exceptions for "Diagnose" folder in "Diagnose" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 7DDE83D12F59C22500DCB81F /* Diagnose */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		7DDE83D42F59C22500DCB81F /* Diagnose */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				7DABCCDD2F5F029200FE2D35 /* Exceptions for "Diagnose" folder in "Diagnose" target */,
+			);
 			path = Diagnose;
 			sourceTree = "<group>";
 		};
@@ -29,6 +43,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7DABCC9A2F5E166800FE2D35 /* GoogleSignIn in Frameworks */,
 				7DDE83F62F5B3C8B00DCB81F /* PostgREST in Frameworks */,
 				7DDE83F42F5B3C8B00DCB81F /* Auth in Frameworks */,
 				7DDE83F92F5C2E7500DCB81F /* Supabase in Frameworks */,
@@ -85,6 +100,7 @@
 				7DDE83F32F5B3C8B00DCB81F /* Auth */,
 				7DDE83F52F5B3C8B00DCB81F /* PostgREST */,
 				7DDE83F82F5C2E7500DCB81F /* Supabase */,
+				68AD5C4D915B34B95232D334 /* GoogleSignIn */,
 			);
 			productName = Diagnose;
 			productReference = 7DDE83D22F59C22500DCB81F /* Diagnose.app */;
@@ -116,6 +132,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				7DDE83F22F5B3C8B00DCB81F /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				4BC1EC720D48C37E26A3D90B /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 7DDE83D32F59C22500DCB81F /* Products */;
@@ -274,8 +291,10 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = MFBHUYJUYJ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Diagnose/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -305,8 +324,10 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = MFBHUYJUYJ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Diagnose/Info.plist;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -353,6 +374,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		4BC1EC720D48C37E26A3D90B /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.1.0;
+			};
+		};
 		7DDE83F22F5B3C8B00DCB81F /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift";
@@ -364,6 +393,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		68AD5C4D915B34B95232D334 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4BC1EC720D48C37E26A3D90B /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
 		7DDE83F32F5B3C8B00DCB81F /* Auth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 7DDE83F22F5B3C8B00DCB81F /* XCRemoteSwiftPackageReference "supabase-swift" */;

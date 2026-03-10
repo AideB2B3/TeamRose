@@ -6,12 +6,16 @@
 //
 
 import SwiftUI
+import GoogleSignIn
 
 @main
 struct DiagnoseApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RoleSelectionRootView()
+                .onOpenURL { url in
+                    GIDSignIn.sharedInstance.handle(url)
+                }
         }
     }
 }

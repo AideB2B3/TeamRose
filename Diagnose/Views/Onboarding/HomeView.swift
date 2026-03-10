@@ -7,10 +7,10 @@ struct HomeView: View {
         VStack {
             Spacer()
             ZStack {
-                Circle().fill(Color.blue.opacity(0.1)).frame(width: 200, height: 200)
+                Circle().fill(Color.brandPrimary.opacity(0.1)).frame(width: 200, height: 200)
                 Image(systemName: "wrench.and.iphone")
                     .font(.system(size: 80))
-                    .foregroundColor(.blue)
+                    .foregroundColor(.brandPrimary)
                     .symbolEffect(.pulse)
             }
             Spacer()
