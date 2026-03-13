@@ -1,4 +1,6 @@
-# TeamRose
+# During my tenure as a supervisor and leader, I guided this team through their journey in the Foundation program at the Apple Developer Academy.
+
+# TeamRose: 
 # Fixo – Intelligent Tech Repairs 📱🛠️
 **Fixo** is a premium iOS application designed to bridge the gap between users with broken devices and expert repair shops. It combines high-end hardware diagnostics with a seamless repair booking marketplace.
 ---
@@ -53,5 +55,5 @@
 Distributed under the MIT License. See `LICENSE` for more information.
 ---
 ## 🤝 Contact
-Project Link: [https://github.com/your-username/fixo-ios](https://github.com/your-username/fixo-ios)
+Project Link: https://github.com/AideB2B3/TeamRose?tab=readme-ov-file
 Developed with ❤️ for the Tech Repair Community.
